@@ -1,12 +1,14 @@
 const mongoose = require('mongoose');
 const app = require('./app');
 require("dotenv").config({ path: "datos.env" });
+var controllerUser = require('./src/controllers/usuarios.controller')
 
 mongoose.Promise = global.Promise;
 //mongoose.connect(process.env.CONEXION_DB_MONGODB, {useNewUrlParser: true, useUnifiedTopology: true }).then(()=>{
   mongoose.connect(process.env.CONEXION_DB_MONGODB, {useNewUrlParser: true, useUnifiedTopology: true }).then(()=>{
 
     console.log("Se encuentra conectado a la base de datos");
+    controllerUser.registarAdminDefecto();
 
 }).catch(err => console.log(err))
 

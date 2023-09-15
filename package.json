@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/AlejandroJavierGarciaGarcia/Backend_CVBuilder_POO_2023#readme",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "bcrypt-nodejs": "^0.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
