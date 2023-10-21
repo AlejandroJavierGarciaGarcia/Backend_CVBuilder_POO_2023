@@ -1,7 +1,14 @@
+
 const Usuarios = require('../models/usuario.model')
 const bcrypt = require('bcrypt');
 const jwt = require('../services/jwt')
 
+/**
+ * Register a default administrator user if it does not already exist.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
 async function registarAdminDefecto(req, res) {
     var usuarioModelo = new Usuarios();
     usuarioModelo.nombre = 'SuperAdmin';
@@ -46,7 +53,12 @@ function registarAdminDefecto(req, res) {
 }*/
 
 
-
+/**
+ * Retrieve users excluding administrators.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
 function ObtenerUsuarios(req, res) {
     Usuarios.find({ rol: { $ne: 'ROL_ADMINISTRADOR' } }, (err, usuariosObtenidos) => {
         if(err) return res.send({message: "error:" + err})
@@ -57,28 +69,83 @@ function ObtenerUsuarios(req, res) {
         return res.send({Clientes: usuariosObtenidos})
     });
 } 
-
+/**
+ * Get a user by their ID.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
 function ObtenerUsuariosId(req, res) {
-    var idUsuario = req.params.id
-        Usuarios.findById(idUsuario, (err, clientecontrado) => {
-            if (err) return res.status(500).send({ message: "Error en la peticion" });
-            if (!clientecontrado) return res.status(404).send({ message: "Error, no se encuentran empleado" });
-            return res.status(200).send({ clienteEncontrado: clientecontrado })
-        })
-}
-
-function ObtenerUserLogueado(req, res) {
-    Usuarios.findOne({ _id: req.user.sub }, (err, UserLogin) => {
-      if (err) return res.status(500).send({ message: "Error en la peticion" });
-      if (!UserLogin)
-        return res
-          .status(404)
-          .send({ message: "Error, no se encuentran usuarios" });
-      return res.status(200).send({ usuario: UserLogin });
+  const idUsuario = req.params.id;
+  Usuarios.findById(idUsuario)
+    .then(clienteEncontrado => {
+      if (!clienteEncontrado) {
+        return res.status(404).send({ message: "Error, no se encontró empleado" });
+      }
+      return res.status(200).send({ clienteEncontrado });
+    })
+    .catch(error => {
+      return res.status(500).send({ message: "Error en la petición" });
     });
-  }
+}
+/**
+ * Get the currently logged-in user.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
+function ObtenerUserLogueado(req, res) {
+  Usuarios.findOne({ _id: req.user.sub })
+    .then(UserLogin => {
+      if (!UserLogin) {
+        return res.status(404).send({ message: "Error, no se encontraron usuarios" });
+      }
+      return res.status(200).send({ usuario: UserLogin });
+    })
+    .catch(error => {
+      return res.status(500).send({ message: "Error en la petición" });
+    });
+}
   
 //METODO PARA PODER INICIAR SESION
+/**
+ * Log in a user with username and password.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
+function Login(req, res) {
+  const parameters = req.body;
+  Usuarios.findOne({ usuario: parameters.usuario })
+    .then(usuarioLogeado => {
+      if (!usuarioLogeado) {
+        return res.status(404).send({ message: "Usuario incorrecto, verifique los datos." });
+      }
+      bcrypt.compare(parameters.password, usuarioLogeado.password)
+        .then(passwordComparacion => {
+          if (passwordComparacion) {
+            if (parameters.obtenerToken === "true") {
+              const token = jwt.crearToken(usuarioLogeado);
+              return res.status(200).send({ token });
+            } else {
+              usuarioLogeado.password = undefined;
+              return res.status(200).send({ usuario: usuarioLogeado });
+            }
+          } else {
+            return res.status(404).send({ message: "Contraseña incorrecta" });
+          }
+        })
+        .catch(error => {
+          return res.status(500).send({ message: "Error al comparar la contraseña" });
+        });
+    })
+    .catch(error => {
+      return res.status(500).send({ message: "Error en la petición" });
+    });
+}
+
+/*
+Sin función asíncrona
 function Login(req, res) {
     var parameters = req.body;
     Usuarios.findOne({ usuario: parameters.usuario }, (err, usuarioLogeado) => {
@@ -109,36 +176,125 @@ function Login(req, res) {
       }
     });
   }
+*/
 
-function RegistrarCliente(req, res) {
-    var parametros = req.body;
-    var usuarioModelo = new Usuarios();
+/*
+USER REGISTER
+*/
+/**
+ * Register a new client user.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
+  function RegistrarCliente(req, res) {
+    const parametros = req.body;
     if (parametros.nombre && parametros.usuario && parametros.password && parametros.apellido) {
-      usuarioModelo.nombre = parametros.nombre;
-      usuarioModelo.apellido = parametros.apellido
-      usuarioModelo.usuario = parametros.usuario;
-      usuarioModelo.rol = 'ROL_CLIENTE';
-      Usuarios.findOne({ usuario: parametros.usuario }, (err, usuarioEcontrado) => {
-        if (usuarioEcontrado == null) {
-          brycpt.hash(parametros.password, null, null, (err, passwordEncriptada) => {
-            usuarioModelo.password = passwordEncriptada;
-            usuarioModelo.save((err, usuarioGuardado) => {
-              if (err) return res.status(500).send({ message: 'Error en la peticion' });
-              if (!usuarioGuardado) return res.status(404).send({ message: 'No se encontraron usuarios' });
+      Usuarios.findOne({ usuario: parametros.usuario })
+        .then(usuarioEncontrado => {
+          if (usuarioEncontrado) {
+            return res.status(400).send({ message: 'Este usuario ya está siendo utilizado, pruebe usando otro' });
+          } else {
+            bcrypt.hash(parametros.password, 10, (err, passwordEncriptada) => {
+              if (err) {
+                return res.status(500).send({ message: 'Error al cifrar la contraseña' });
+              }
+              
+              const nuevoUsuario = new Usuarios({
+                nombre: parametros.nombre,
+                apellido: parametros.apellido,
+                usuario: parametros.usuario,
+                password: passwordEncriptada,
+                rol: 'ROL_CLIENTE',
+              });
   
-              return res.status(200).send({ Empresa: usuarioGuardado });
+              nuevoUsuario.save()
+                .then(usuarioGuardado => {
+                  return res.status(200).send({ Usuario: usuarioGuardado });
+                })
+                .catch(error => {
+                  return res.status(500).send({ message: 'Error al guardar el usuario' });
+                });
             });
-          });
-        } else {
-          return res.status(400).send({ message: 'Este usuario ya esta siendo utilizado, pruebe usando otro' });
+          }
+        })
+        .catch(error => {
+          return res.status(500).send({ message: 'Error en la petición' });
+        });
+    } else {
+      return res.status(400).send({ message: 'Llene todos los campos requeridos' });
+    }
+  }
+
+  /**
+ * Edit a user's information.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
+  function EditarUsuarios(req, res) {
+    const idUser = req.params.idUsuario;
+    const parametros = req.body;
+  
+    // Buscar el usuario por su ID
+    Usuarios.findOne({ _id: idUser })
+      .then(usuarioBuscado => {
+        if (!usuarioBuscado) {
+          // Si el usuario no se encuentra, responder con un estado 404 (no encontrado)
+          return res.status(404).send({ message: "Error, el usuario no existe. Verifique el ID" });
         }
   
+        if (usuarioBuscado.rol === "ROL_ADMINISTRADOR") {
+          // No es posible editar a los administradores
+          return res.status(500).send({ message: 'No es posible editar Administradores' });
+        } else {
+          if (req.user.rol === "ROL_ADMINISTRADOR") {
+            // Administrador puede editar usuarios
+            Usuarios.findByIdAndUpdate(idUser, parametros, { new: true })
+              .then(usuarioActualizado => {
+                if (!usuarioActualizado) {
+                  // Si no se pudo actualizar, responder con un estado 404
+                  return res.status(404).send({ message: 'Error al editar usuario' });
+                }
+                // Responder con el usuario actualizado
+                return res.status(200).send({ usuario: usuarioActualizado });
+              })
+              .catch(error => {
+                // Manejar errores en la petición
+                return res.status(500).send({ message: 'Error en la petición' });
+              });
+          } else {
+            // El Cliente solo puede editar su propio perfil
+            if (usuarioBuscado._id == req.user.sub) {
+              Usuarios.findByIdAndUpdate(idUser, parametros, { new: true })
+                .then(usuarioActualizado => {
+                  if (!usuarioActualizado) {
+                    // Si no se pudo actualizar, responder con un estado 404
+                    return res.status(404).send({ message: 'Error al editar la empresa' });
+                  }
+                  // Responder con el usuario actualizado
+                  return res.status(200).send({ usuario: usuarioActualizado });
+                })
+                .catch(error => {
+                  // Manejar errores en la petición
+                  return res.status(500).send({ message: 'Error en la petición' });
+                });
+            } else {
+              // El usuario no tiene permisos para editar otros usuarios
+              return res.status(500)
+                .send({ message: 'No puede editar otros usuarios, solamente su propio perfil de usuario' });
+            }
+          }
+        }
       })
-    } else {
-      return res.status(500).send({ message: 'Llene todos los campos requeridos' });
-    }
-}
+      .catch(error => {
+        // Manejar errores en la petición
+        return res.status(500).send({ message: "Error en la petición" });
+      });
+  }
 
+  /*
+  No asincrónico
 function EditarUsuarios(req, res) {
   var idUser = req.params.idUsuario;
   var parametros = req.body;
@@ -155,22 +311,13 @@ function EditarUsuarios(req, res) {
         if (parametros.rol == '') {
 
 
-          // Usuarios.findOne({idHotel:parametros.idHotel},(err, hotelAdmnRegistrado) =>{
-          //   if(hotelAdmnRegistrado!=null) return res.status(404).send( { message: 'El hotel ya posee un administrador. Seleccione otro.'});
           Usuarios.findByIdAndUpdate(idUser, parametros, { new: true }, (err, usuarioActualizado) => {
             if (err) return res.status(500).send({ message: 'Error en la peticion' });
             if (!usuarioActualizado) return res.status(404).send({ message: 'Error al editar usuario' });
 
-            //   Hoteles.findByIdAndUpdate(usuarioActualizado.idHotel, {idUsuario:usuarioActualizado._id}, { new: true } ,(err, hotelActualizado) => {
-            //     if (err) return res.status(500).send({ message: 'Error en la peticion'});
-            //     if(!hotelActualizado) return res.status(404).send( { message: 'Error al editar hotel'});
-
-            //     return res.status(200).send({ empresa: hotelActualizado});
-            // });
-
           });
 
-          // })
+
 
 
         } else {
@@ -202,19 +349,28 @@ function EditarUsuarios(req, res) {
       }
     }
   })
-}
+}*/
 
+/**
+ * Method to delete a user without validation.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
 //METODO PARA ELIMINAR  USUARIO SIN VALIDACIONES AUN
 function EliminarUsuarios(req, res) {
-    var idUsu = req.params.idUsuario;
-    Usuarios.findByIdAndDelete(idUsu, (err, usuarioEliminado)=>{
-        if(err) return res.status(500).send({message: 'Error en la peticion'});
-        if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
+  const idUsu = req.params.idUsuario;
 
-        return res.status(200).send({usuarios: usuarioEliminado});
+  Usuarios.findByIdAndDelete(idUsu)
+    .then(usuarioEliminado => {
+      if (!usuarioEliminado) {
+        return res.status(404).send({ message: 'No se encontraron usuarios' });
+      }
+      return res.status(200).send({ usuarios: usuarioEliminado });
     })
-
-    
+    .catch(err => {
+      return res.status(500).send({ message: 'Error en la petición' });
+    });
 }
 
 
