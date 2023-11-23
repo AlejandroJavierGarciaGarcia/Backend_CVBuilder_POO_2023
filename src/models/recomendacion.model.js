@@ -3,28 +3,10 @@ const mongoose = require('mongoose');
 
 var Schema=mongoose.Schema;
 
-var productosEmpresaSchema = Schema({
-    idUsuario: { type: Schema.Types.ObjectId, ref: 'usuario' },
-    recomendacionesFoto: [{
-        titulo: String,
-        descripcion: String
-    }],
-    recomendacionesHabilidades: [{
-        titulo: String,
-        descripcion: String
-    }],
-    recomendacionesExperiencia: [{
-        titulo: String,
-        descripcion: String
-    }],
-    recomendacionesEducacion: [{
-        titulo: String,
-        descripcion: String
-    }],
-    recomendacionesIdiomas: [{
-        titulo: String,
-        descripcion: String
-    }]
+var recomenacionesSchema = Schema({
+    titulo: String,
+    descripcion: String,
+    tips: [],
+    clasificacion: String
 })
-
-module.exports=mongoose.model('recomendacion',productosEmpresaSchema)
+module.exports=mongoose.model('recomendacion',recomenacionesSchema)

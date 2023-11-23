@@ -1,4 +1,11 @@
 
+/**
+ * @author Ana Laura Tschen, Jonathan Zacarías, Alejandro García
+ * @version 1.0
+ * @date 18/09/2023
+ * Comentado con IA
+ */
+
 const Usuarios = require('../models/usuario.model')
 const bcrypt = require('bcrypt');
 const jwt = require('../services/jwt')
@@ -30,6 +37,8 @@ async function registarAdminDefecto(req, res) {
         console.error('Error al registrar usuario administrador:', err);
     }
 }
+
+
 
 /*
 CONSULTAR FUNCIONAMINETO
@@ -124,12 +133,15 @@ function Login(req, res) {
       bcrypt.compare(parameters.password, usuarioLogeado.password)
         .then(passwordComparacion => {
           if (passwordComparacion) {
-            if (parameters.obtenerToken === "true") {
+            console.log(parameters.obtenerToken)
+            console.log(parameters.usuario)
+            if (parameters.obtenerToken == "true") {
               const token = jwt.crearToken(usuarioLogeado);
               return res.status(200).send({ token });
             } else {
+              const token = jwt.crearToken(usuarioLogeado);
               usuarioLogeado.password = undefined;
-              return res.status(200).send({ usuario: usuarioLogeado });
+              return res.status(200).send({ usuario: usuarioLogeado,token });
             }
           } else {
             return res.status(404).send({ message: "Contraseña incorrecta" });
@@ -190,37 +202,48 @@ USER REGISTER
   function RegistrarCliente(req, res) {
     const parametros = req.body;
     if (parametros.nombre && parametros.usuario && parametros.password && parametros.apellido) {
-      Usuarios.findOne({ usuario: parametros.usuario })
-        .then(usuarioEncontrado => {
-          if (usuarioEncontrado) {
-            return res.status(400).send({ message: 'Este usuario ya está siendo utilizado, pruebe usando otro' });
-          } else {
-            bcrypt.hash(parametros.password, 10, (err, passwordEncriptada) => {
-              if (err) {
+
+      let camposAValidar = ['usuario'];
+      let verificacionesPendientes = [];
+
+      for (let campo of camposAValidar) {
+        verificacionesPendientes.push(
+            Usuarios.findOne({ [campo]: parametros[campo] })
+        );
+    }
+
+      Promise.all(verificacionesPendientes).then(resultados => {
+        for (let resultado of resultados) {
+            if (resultado) {
+                return res.status(400).send({ message: `El usuario ingresado ya está en uso` });
+            }
+        }
+
+        bcrypt.hash(parametros.password, 10, (err, passwordEncriptada) => {
+            if (err) {
                 return res.status(500).send({ message: 'Error al cifrar la contraseña' });
-              }
-              
-              const nuevoUsuario = new Usuarios({
+            }
+
+            const nuevoUsuario = new Usuarios({
                 nombre: parametros.nombre,
                 apellido: parametros.apellido,
                 usuario: parametros.usuario,
                 password: passwordEncriptada,
                 rol: 'ROL_CLIENTE',
-              });
-  
-              nuevoUsuario.save()
+            });
+
+            nuevoUsuario.save()
                 .then(usuarioGuardado => {
-                  return res.status(200).send({ Usuario: usuarioGuardado });
+                    return res.status(200).send({ Usuario: usuarioGuardado });
                 })
                 .catch(error => {
-                  return res.status(500).send({ message: 'Error al guardar el usuario' });
+                    return res.status(500).send({ message: 'Error al guardar el usuario' });
                 });
-            });
-          }
-        })
-        .catch(error => {
-          return res.status(500).send({ message: 'Error en la petición' });
         });
+    }).catch(error => {
+        return res.status(500).send({ message: `El usuario ingresado ya está en uso` });
+
+    });
     } else {
       return res.status(400).send({ message: 'Llene todos los campos requeridos' });
     }
@@ -232,15 +255,14 @@ USER REGISTER
  * @param {Object} req - The request object.
  * @param {Object} res - The response object.
  */
-  function EditarUsuarios(req, res) {
+  function editarUsuarios(req, res) {
     const idUser = req.params.idUsuario;
     const parametros = req.body;
-  
+    console.log(idUser)
     // Buscar el usuario por su ID
     Usuarios.findOne({ _id: idUser })
       .then(usuarioBuscado => {
         if (!usuarioBuscado) {
-          // Si el usuario no se encuentra, responder con un estado 404 (no encontrado)
           return res.status(404).send({ message: "Error, el usuario no existe. Verifique el ID" });
         }
   
@@ -248,6 +270,7 @@ USER REGISTER
           // No es posible editar a los administradores
           return res.status(500).send({ message: 'No es posible editar Administradores' });
         } else {
+
           if (req.user.rol === "ROL_ADMINISTRADOR") {
             // Administrador puede editar usuarios
             Usuarios.findByIdAndUpdate(idUser, parametros, { new: true })
@@ -270,7 +293,7 @@ USER REGISTER
                 .then(usuarioActualizado => {
                   if (!usuarioActualizado) {
                     // Si no se pudo actualizar, responder con un estado 404
-                    return res.status(404).send({ message: 'Error al editar la empresa' });
+                    return res.status(404).send({ message: 'Error al editar el usuario' });
                   }
                   // Responder con el usuario actualizado
                   return res.status(200).send({ usuario: usuarioActualizado });
@@ -289,7 +312,8 @@ USER REGISTER
       })
       .catch(error => {
         // Manejar errores en la petición
-        return res.status(500).send({ message: "Error en la petición" });
+        console.log(error)
+        return res.status(500).send({ message: " - Error en la petición." });
       });
   }
 
@@ -378,7 +402,7 @@ module.exports = {
     Login,
     registarAdminDefecto,
     RegistrarCliente,
-    EditarUsuarios,
+    EditarUsuarios: editarUsuarios,
     EliminarUsuarios,
     ObtenerUsuarios,
     ObtenerUsuariosId,

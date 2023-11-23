@@ -14,10 +14,8 @@ var usuariosSchema = Schema({
     ciudad:String,
     direccion:String,
     telefono:String,
-    descripcion:String,
     suscripcion:String,
     sexo:String,
-
 })
 
 module.exports=mongoose.model('usuario',usuariosSchema)
