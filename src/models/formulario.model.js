@@ -6,7 +6,7 @@ var Schema=mongoose.Schema;
 var formulariosSchema = Schema({
     idUsuario: { type: Schema.Types.ObjectId, ref: 'usuario'},
     //DATOS QUE SE SOLICITAN EN EL FORMULARIO
-    resumenPerfil: Satring,
+    resumenPerfil: String,
 
     
     idiomas: [{

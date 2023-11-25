@@ -133,8 +133,7 @@ function Login(req, res) {
       bcrypt.compare(parameters.password, usuarioLogeado.password)
         .then(passwordComparacion => {
           if (passwordComparacion) {
-            console.log(parameters.obtenerToken)
-            console.log(parameters.usuario)
+
             if (parameters.obtenerToken == "true") {
               const token = jwt.crearToken(usuarioLogeado);
               return res.status(200).send({ token });
@@ -229,6 +228,7 @@ USER REGISTER
                 apellido: parametros.apellido,
                 usuario: parametros.usuario,
                 password: passwordEncriptada,
+                suscripcion: "Normal",
                 rol: 'ROL_CLIENTE',
             });
 
